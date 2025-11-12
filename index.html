@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>🎯 연관 단어 퀴즈 슛</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
+    <style>
+        /* CSS: 디자인 스타일 */
+        body {
+            background-color: #388e3c; 
+            color: white;
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        #game-container {
+            width: 600px;
+            height: 800px;
+            background-color: #558b2f;
+            border: 5px solid #ff9800;
+            box-shadow: 0 0 0 5px #f06292;
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            border-radius: 10px;
+            position: relative;
+        }
+
+        /* 상단 정보바 및 퀴즈 */
+        #info-bar {
+            text-align: center;
+            margin-bottom: 10px;
+            z-index: 100;
+        }
+        #info-bar h1 {
+            font-size: 2em;
+            margin: 10px 0 5px;
+        }
+        #quiz-word {
+            font-size: 2.2em;
+            font-weight: bold;
+            color: #ffeb3b;
+            text-shadow: 2px 2px 4px #000;
+            margin-bottom: 15px;
+            padding: 5px 0;
+            background-color: #3f51b5;
+        }
+        .stats span {
+            font-size: 1.2em;
+            padding: 5px 15px;
+            margin: 0 5px;
+            background-color: #f44336;
+            border: 2px solid #ffeb3b;
+            box-shadow: 3px 3px 0 #ff9800;
+            display: inline-block;
+        }
+
+        /* 중앙 게임 영역 */
+        #game-area {
+            flex-grow: 1;
+            position: relative;
+            overflow: hidden;
+            background-color: #689f38; 
+            cursor: pointer;
+        }
+
+        /* 골대 (Basket) 영역 */
+        #basket-area {
+            position: absolute;
+            top: 50px;
+            width: 100%;
+            height: 150px;
+            display: flex;
+            justify-content: space-around;
+            z-index: 50;
+        }
+
+        /* *** 골대 내부 스타일 (간격 수정 적용) *** */
+        .basket {
+            width: 150px;
+            height: 100%;
+            text-align: center;
+            font-size: 1em;
+            padding: 10px 5px; 
+            color: #fff;
+            background-color: rgba(0, 0, 0, 0.4);
+            border: 3px solid #ffeb3b;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
+            position: relative;
+            cursor: pointer;
+            word-break: keep-all; 
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end; 
+            align-items: center;
+        }
+        
+        .basket::before {
+            content: '🥅';
+            font-size: 3em;
+            position: absolute;
+            top: 10px; 
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        /* ************************************** */
+
+
+        /* 농구공 (아래에서 위로 이동) */
+        .ball {
+            position: absolute;
+            font-size: 2em;
+            width: 50px;
+            cursor: pointer;
+            transition: top 1.2s linear, left 1.2s ease-out, transform 1.2s;
+            user-select: none;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
+        /* 점수 표시 */
+        .scored {
+            position: absolute;
+            font-size: 2.5em; 
+            font-weight: bold;
+            color: #ffeb3b; 
+            opacity: 0;
+            animation: score-fade 0.7s ease-out forwards;
+            z-index: 99;
+        }
+
+        @keyframes score-fade {
+            from { transform: translateY(0); opacity: 1; }
+            to { transform: translateY(-30px); opacity: 0; }
+        }
+
+        /* 하단 버튼/메시지 */
+        #control-panel {
+            text-align: center;
+            padding: 10px 0;
+            z-index: 100;
+        }
+
+        #start-button {
+            padding: 10px 20px;
+            font-size: 1.5em;
+            cursor: pointer;
+            background-color: #1565c0;
+            color: white;
+            border: 3px solid #ffeb3b;
+            box-shadow: 4px 4px 0 #0d47a1;
+            transition: all 0.1s;
+        }
+
+        #start-button:active {
+            box-shadow: 1px 1px 0 #0d47a1;
+            transform: translate(3px, 3px);
+        }
+
+        #result-message {
+            margin-top: 10px;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #ffeb3b;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <header id="info-bar">
+            <h1>🏀 연관 단어 퀴즈 슛!</h1>
+            <div id="quiz-word"></div>
+            <div class="stats">
+                <span>남은 시간: <span id="time-left">0</span>초</span>
+                <span>현재 점수: <span id="current-score">0</span>점</span>
+            </div>
+        </header>
+
+        <main id="game-area">
+            <div id="basket-area">
+                </div>
+            <div id="ball-spawn-point" style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); font-size: 2em;">🎯</div>
+        </main>
+
+        <footer id="control-panel">
+            <button id="start-button">게임 시작</button>
+            <p id="result-message">버튼을 눌러 게임을 시작하세요!</p>
+        </footer>
+    </div>
+
+    <script>
+        // JavaScript: 게임 로직
+        // DOMContentLoaded를 사용하여 요소 로딩을 기다립니다. (안정성 극대화)
+        document.addEventListener('DOMContentLoaded', (event) => {
+            const gameArea = document.getElementById('game-area');
+            const startButton = document.getElementById('start-button');
+            const timeLeftSpan = document.getElementById('time-left');
+            const scoreSpan = document.getElementById('current-score');
+            const resultMessage = document.getElementById('result-message');
+            const quizWordDiv = document.getElementById('quiz-word');
+            const basketArea = document.getElementById('basket-area');
+            const ballSpawnPoint = document.getElementById('ball-spawn-point');
+
+            // 단어/숙어 데이터 (30개 문제)
+            const QUIZ_DATA = [
+                { word: "APPLE (사과)", related: "FRUIT", distractors: ["CAR", "SHIP", "CHAIR"] },
+                { word: "RUN (달리다)", related: "SPEED", distractors: ["SLEEP", "FENCE", "CLOUD"] },
+                { word: "WATER (물)", related: "OCEAN", distractors: ["MOUNTAIN", "FIRE", "BRICK"] },
+                { word: "BOOK (책)", related: "READ", distractors: ["SING", "DANCE", "JUMP"] },
+                { word: "COLD (추운)", related: "WINTER", distractors: ["SUMMER", "HOT", "SUN"] },
+                { word: "SCHOOL (학교)", related: "STUDY", distractors: ["COOK", "DRIVE", "BUILD"] },
+                { word: "DOG (개)", related: "PET", distractors: ["VEGETABLE", "PLANT", "ROCKET"] },
+                { word: "FINGER (손가락)", related: "HAND", distractors: ["FOOT", "NOSE", "HAIR"] },
+                { word: "PLANE (비행기)", related: "FLY", distractors: ["DIG", "SWIM", "SIT"] },
+                { word: "DOCTOR (의사)", related: "HOSPITAL", distractors: ["GARAGE", "FARM", "FORK"] },
+                { word: "MUSIC (음악)", related: "SING", distractors: ["WHISPER", "WRITE", "BUILDING"] },
+                { word: "TABLE (테이블)", related: "WOOD", distractors: ["AIR", "COTTON", "CLOUD"] },
+                { word: "FLOWER (꽃)", related: "GARDEN", distractors: ["FACTORY", "DESERT", "SNOW"] },
+                { word: "SUN (태양)", related: "LIGHT", distractors: ["DARK", "MUD", "WHALE"] },
+                { word: "MONEY (돈)", related: "WALLET", distractors: ["PENCIL", "CLOCK", "RIVER"] },
+                { word: "BIRD (새)", related: "FEATHER", distractors: ["SCALES", "FUR", "SKIN"] },
+                { word: "RAIN (비)", related: "WET", distractors: ["DRY", "HOT", "BRIGHT"] },
+                { word: "TELEPHONE (전화)", related: "CALL", distractors: ["EAT", "SLEEP", "WASH"] },
+                { word: "BREAD (빵)", related: "WHEAT", distractors: ["PLASTIC", "IRON", "OIL"] },
+                { word: "CHAIR (의자)", related: "SIT", distractors: ["RUN", "STAND", "THINK"] },
+                { word: "PIZZA (피자)", related: "FOOD", distractors: ["CLOTH", "METAL", "SHADOW"] },
+                { word: "BALL (공)", related: "ROUND", distractors: ["SQUARE", "FLAT", "LINE"] },
+                { word: "CANDLE (양초)", related: "WAX", distractors: ["GLASS", "WATER", "STONE"] },
+                { word: "FIRE (불)", related: "HEAT", distractors: ["ICE", "WIND", "SAND"] },
+                { word: "OCEAN (바다)", related: "BLUE", distractors: ["RED", "YELLOW", "BROWN"] },
+                { word: "MOUNTAIN (산)", related: "HIGH", distractors: ["LOW", "FAST", "EASY"] },
+                { word: "CAR (차)", related: "DRIVE", distractors: ["SAIL", "JUMP", "READ"] },
+                { word: "HUT (오두막)", related: "HOUSE", distractors: ["TOWER", "CASTLE", "CITY"] },
+                { word: "SLEEP (잠)", related: "NIGHT", distractors: ["DAY", "MORNING", "NOON"] },
+                { word: "ROAD (길)", related: "TRAVEL", distractors: ["STAY", "WAIT", "REST"] }
+            ];
+
+            const GAME_DURATION = 30;
+            const TARGET_SCORE = 30; 
+            const SCORE_CORRECT = 1; 
+            const SCORE_INCORRECT = -1; 
+            
+            let score = 0;
+            let timeRemaining = GAME_DURATION;
+            let gameInterval = null;
+            let isGameRunning = false;
+            let currentQuizIndex = -1;
+            let activeBall = null; 
+            let currentCorrectWord = ""; 
+
+            // --- 퀴즈 및 골대 설정 ---
+
+            function setQuiz() {
+                if (!isGameRunning) return;
+                currentQuizIndex = Math.floor(Math.random() * QUIZ_DATA.length);
+                const currentQuiz = QUIZ_DATA[currentQuizIndex];
+
+                quizWordDiv.textContent = currentQuiz.word;
+                currentCorrectWord = currentQuiz.related;
+
+                let options = [currentQuiz.related, ...currentQuiz.distractors.sort(() => 0.5 - Math.random()).slice(0, 2)];
+                options.sort(() => 0.5 - Math.random());
+                
+                basketArea.innerHTML = ''; 
+
+                options.forEach((word) => {
+                    const basketDiv = document.createElement('div');
+                    basketDiv.className = 'basket';
+                    basketDiv.innerHTML = word; 
+                    basketDiv.dataset.word = word; 
+                    basketDiv.addEventListener('click', () => startShot(basketDiv));
+                    basketArea.appendChild(basketDiv);
+                });
+                
+                spawnBall();
+            }
+
+            // --- 공 생성 및 슛 로직 ---
+            
+            function spawnBall() {
+                if (!isGameRunning) return; 
+                if (activeBall) activeBall.remove();
+
+                const ball = document.createElement('div');
+                ball.className = 'ball';
+                ball.innerHTML = `🏀`;
+                
+                gameArea.appendChild(ball);
+                activeBall = ball;
+            }
+
+            // 골대 클릭 시 슛 시작
+            function startShot(targetBasket) {
+                if (!isGameRunning || !activeBall) return;
+                
+                activeBall.style.transition = 'top 1.2s ease-out, left 1.2s ease-out, transform 1.2s';
+
+                const targetRect = targetBasket.getBoundingClientRect();
+                const targetGameLeft = targetRect.left - gameArea.getBoundingClientRect().left;
+                
+                activeBall.style.top = `${targetRect.top - gameArea.getBoundingClientRect().top + 10}px`;
+                activeBall.style.left = `${targetGameLeft + targetRect.offsetWidth / 2 - 25}px`; 
+                activeBall.style.transform = 'scale(0.8)'; 
+
+                setTimeout(() => {
+                    checkScore(targetBasket);
+                }, 1200);
+            }
+
+            // 게임 영역 바깥 클릭 시 (실패/감점 처리)
+            gameArea.addEventListener('click', (event) => {
+                if (!isGameRunning || !activeBall) return;
+                
+                if (!event.target.classList.contains('basket')) {
+                    
+                    activeBall.style.transition = 'top 1s ease-out, transform 1s';
+                    activeBall.style.top = `-50px`; 
+                    activeBall.style.opacity = 0;
+                    
+                    handleShotResult(false, null, 'MISS');
+
+                    setTimeout(() => {
+                        if (activeBall) activeBall.remove();
+                        activeBall = null;
+                        spawnBall();
+                    }, 1000);
+                }
+            });
+            
+            function checkScore(targetBasket) {
+                const hitWord = targetBasket.dataset.word;
+                const isCorrect = hitWord === currentCorrectWord;
+
+                handleShotResult(isCorrect, targetBasket);
+            }
+
+            function handleShotResult(isCorrect, targetBasket, type = 'HIT') {
+                
+                if (!isGameRunning) return; 
+
+                if (activeBall) activeBall.remove();
+                activeBall = null;
+                
+                let points = 0;
+                let message = "";
+
+                if (isCorrect) {
+                    points = SCORE_CORRECT;
+                    message = `+${points}점! 정답!`;
+                } else if (type === 'MISS') {
+                    points = SCORE_INCORRECT;
+                    message = `${points}점! 놓침!`;
+                } else { // 오답 골대
+                    points = SCORE_INCORRECT;
+                    message = `${points}점! 오답!`;
+                }
+
+                score += points;
+                scoreSpan.textContent = score;
+
+                const scoreText = document.createElement('div');
+                scoreText.className = 'scored';
+                scoreText.textContent = message;
+                scoreText.style.color = points >= 0 ? '#00e676' : '#ff5252'; 
+                
+                let targetElement = targetBasket ? targetBasket : ballSpawnPoint;
+
+                scoreText.style.left = `${targetElement.offsetLeft + targetElement.offsetWidth / 2 - 50}px`;
+                scoreText.style.top = `${targetElement.offsetTop}px`;
+                gameArea.appendChild(scoreText);
+                
+                setTimeout(() => scoreText.remove(), 700); 
+
+                if (isCorrect) {
+                    setQuiz();
+                } else {
+                    spawnBall();
+                }
+            }
+
+
+            // --- 게임 컨트롤 ---
+
+            function updateTimer() {
+                timeRemaining--;
+                timeLeftSpan.textContent = timeRemaining;
+
+                if (timeRemaining <= 0) {
+                    endGame();
+                }
+            }
+
+            function startGame() {
+                if (isGameRunning) return; 
+
+                score = 0;
+                currentQuizIndex = -1; 
+                timeRemaining = GAME_DURATION;
+                scoreSpan.textContent = score;
+                timeLeftSpan.textContent = timeRemaining;
+                resultMessage.textContent = '';
+                isGameRunning = true;
+                startButton.textContent = '게임 중...';
+                startButton.disabled = true;
+
+                document.querySelectorAll('.ball, .scored').forEach(el => el.remove());
+                if (activeBall) activeBall.remove();
+                activeBall = null;
+
+                gameInterval = setInterval(updateTimer, 1000);
+                
+                setQuiz();
+            }
+
+            function endGame() {
+                isGameRunning = false;
+                clearInterval(gameInterval);
+                startButton.textContent = '다시 시작';
+                startButton.disabled = false;
+
+                if (activeBall) activeBall.remove();
+                quizWordDiv.textContent = 'GAME OVER';
+
+                let message = `게임 종료! 최종 점수: ${score}점. `;
+                if (score >= TARGET_SCORE) {
+                    message = `🏆 훌륭합니다! 최종 점수 ${score}점으로 목표 달성!`;
+                } else {
+                    message += "😅 다음에 다시 도전하여 목표 (30점)를 달성해 보세요!";
+                }
+                resultMessage.textContent = message;
+            }
+
+            // 이벤트 리스너를 DOMContentLoaded 내부에서 붙여, 버튼이 확실히 존재할 때 작동하도록 함
+            startButton.addEventListener('click', startGame);
+
+            // 초기 화면 표시
+            timeLeftSpan.textContent = GAME_DURATION;
+            quizWordDiv.textContent = '🏀 연관 단어 퀴즈에 도전하세요!';
+        }); // DOMContentLoaded 끝
+    </script>
+</body>
+</html>
